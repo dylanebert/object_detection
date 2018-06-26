@@ -11,6 +11,7 @@ from io import StringIO
 from PIL import Image
 import enchant
 import re
+from matplotlib import pyplot as plt
 sys.path.append("/home/dylan/Documents/models/research/object_detection")
 sys.path.append("/home/dylan/Documents/models/research")
 from object_detection.utils import ops as utils_ops
@@ -21,6 +22,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.chdir('/home/dylan/Documents/models/research/object_detection')
 
 DATA_PATH = '/data/flickr30k-images-raw/uncategorized/'
+SAVE_PATH = '/home/dylan/Documents/object_detection/data'
 MODEL_NAME = 'ssd_mobilenet_v1_coco_2017_11_17'
 MODEL_FILE = MODEL_NAME + '.tar.gz'
 DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
@@ -28,6 +30,7 @@ PATH_TO_CKPT = MODEL_NAME + '/frozen_inference_graph.pb'
 PATH_TO_LABELS = os.path.join('data', 'mscoco_label_map.pbtxt')
 NUM_CLASSES = 90
 CERTAINTY = .9
+MIN_SIZE = 64
 
 opener = urllib.request.URLopener()
 opener.retrieve(DOWNLOAD_BASE + MODEL_FILE, MODEL_FILE)
@@ -51,7 +54,7 @@ category_index = label_map_util.create_category_index(categories)
 
 filenames = os.listdir(DATA_PATH)
 
-TEST_IMAGE_PATHS = filenames[:10]
+TEST_IMAGE_PATHS = filenames[:100]
 IMAGE_SIZE = (12, 8)
 
 def load_image_into_numpy_array(image):
@@ -88,7 +91,22 @@ def run_inference(image, graph):
     return output_dict
 
 def extract_patch(filename, image, ymin, xmin, ymax, xmax, label):
-    pass
+    width, height = image.size
+    (left, right, top, bottom) = (int(xmin * width), int(xmax * width), int(ymin * height), int(ymax * height))
+    if right - left < MIN_SIZE or bottom - top < MIN_SIZE:
+        return
+    img = load_image_into_numpy_array(image)
+    img = img[top:bottom, left:right]
+    img_file = Image.fromarray(img)
+    i = 1
+    img_path = os.path.join(SAVE_PATH, label, filename)
+    if not os.path.exists(os.path.join(SAVE_PATH, label)):
+        os.makedirs(os.path.join(SAVE_PATH, label))
+    while os.path.exists(img_path):
+        name, ext = os.path.splitext(filename)
+        img_path = os.path.join(SAVE_PATH, label, name + str(i) + ext)
+        i += 1
+    img_file.save(img_path)
 
 #build dict of denotation graph labels
 node_dict = {}
